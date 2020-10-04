@@ -61,7 +61,10 @@ void setup()
 {
     EEPROM.begin(512); //Initialize EEPROM
     client.setBufferSize(5000);
-    Serial.begin(115200);
+    if (debug)
+    {
+        Serial.begin(115200);
+    }
     delay(2000);
     pinMode(D1, INPUT_PULLUP);
     pinMode(D2, INPUT_PULLUP);
@@ -78,7 +81,10 @@ void setup()
     while (WiFi.status() != WL_CONNECTED)
     {
         delay(500);
-        Serial.print(".");
+        if (debug)
+        {
+            Serial.print(".");
+        }
     }
     timeClient.begin();
     timeClient.update();
@@ -138,19 +144,25 @@ void connectAndPublish(String payload)
     while (WiFi.status() != WL_CONNECTED && timeoutMillis + 5000 > millis())
     {
         delay(500);
-        Serial.print(".");
+        if (debug)
+        {
+            Serial.print(".");
+        }
     }
     if (client.connect("Testi_esp_katko"))
     {
-        Serial.println("Connected to MQTT broker");
+        if (debug)
+            Serial.println("Connected to MQTT broker");
 
         if (client.publish(topic.c_str(), getEEPROMdata().c_str()))
         {
-            Serial.println("Publish ok");
+            if (debug)
+                Serial.println("Publish ok");
         }
         else
         {
-            Serial.println("Publish failed");
+            if (debug)
+                Serial.println("Publish failed");
         }
     }
     delay(500);
@@ -285,11 +297,15 @@ unsigned long EEPROMReadlong(long address)
 
 uint8_t nextIndex(uint8_t index)
 {
-    Serial.printf("nextIndex: Original index:%d\n", index);
+    if (debug)
+        Serial.printf("nextIndex: Original index:%d\n", index);
     if (index < bufferLength - 1)
     {
-        Serial.print("nextIndex: Index updated: ");
-        Serial.println(index + 1);
+        if (debug)
+        {
+            Serial.print("nextIndex: Index updated: ");
+            Serial.println(index + 1);
+        }
         return index + 1;
     }
     return 0;
@@ -303,14 +319,14 @@ void printEEPROMdata()
     uint8_t currentIndex;
     EEPROM.get(510, currentIndex);
 
-    Serial.printf("printEEPROMdata: Current index: %d\n", currentIndex);
+    if (debug) Serial.printf("printEEPROMdata: Current index: %d\n", currentIndex);
 
     for (int i = 0; i < bufferLength; i++)
     {
         epoch = EEPROMReadlong(i * 10) * 1L;
         input = EEPROM.read(i * 10 + 4);
         state = EEPROM.read(i * 10 + 5);
-        if (epoch > 100000 && epoch < 4000000000)
+        if (epoch > 100000 && epoch < 4000000000 && debug)
         {
             Serial.printf("printEEPROMdata: EEPROM index: %d\t Epoch timestamp:%lu \tInput: %d \tState: %d\n", i, epoch, input, state);
         }
@@ -329,7 +345,7 @@ void writeEvent(uint8_t index, unsigned long epoch, byte input, byte state)
 
 void clearEEPROM()
 {
-    Serial.printf("EEPROM cleared\n");
+    if (debug) Serial.printf("EEPROM cleared\n");
     for (int i = 0; i < 512; i++)
     {
         EEPROM.write(i, 0);
