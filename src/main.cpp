@@ -4,12 +4,15 @@
 #include <PubSubClient.h>
 #include <EEPROM.h>
 
+//Asetukset
+const bool debug = false;
+const int loopInterval = 1000;
 const char *ssid = "AndroidAP100";
 const char *password = "100100100";
-
 const char *server = "broker.hivemq.com";
 String topic = "topic_esp8266_katkotesti";
 const uint8_t bufferLength = 50;
+const int wirelessAmplitudeLimit = 4; //Mittausalue ilman A0 ylösvetoa 0-10, ylösvedon kanssa 0-20. Sopivat arvot ~ 4 ja 8
 
 WiFiUDP ntpUDP;
 WiFiClient wifiClient;
@@ -105,7 +108,7 @@ void loop()
     updateWirelessInputState(10);
 
     if (~digitalRead(D3) & 1)
-    {      
+    {
         connectAndPublish(getEEPROMdata());
         lastPublish = millis();
     }
@@ -113,8 +116,15 @@ void loop()
     {
         clearEEPROM();
     }
-
-    delay(1000);
+    if (debug)
+    {
+        if (millis() - lastPublish > 10000)
+        {
+            connectAndPublish(getEEPROMdata());
+            lastPublish = millis();
+        }
+    }
+    delay(loopInterval);
 }
 
 void connectAndPublish(String payload)
@@ -144,8 +154,11 @@ void connectAndPublish(String payload)
         }
     }
     delay(500);
-    WiFi.disconnect();
-    WiFi.forceSleepBegin(500000000);
+    if (!debug)
+    {
+        WiFi.disconnect();
+        WiFi.forceSleepBegin(500000000);
+    }
 }
 
 bool updateInputState(int input)
@@ -219,8 +232,12 @@ bool updateWirelessInputState(int input)
     sp = s / sample;
     amplitude = 2 * sqrt(cp * cp + sp * sp);
     amplitude = constrain(amplitude, 0, 20); //tweak it from experience, 10 works for me
-    Serial.printf("Amplitude: %f DC-component:%ld CP:%f SP:%f\n", amplitude, average, cp, sp);
-    if (amplitude > 8)
+    if (debug)
+    {
+        Serial.printf("Amplitude: %f DC-component:%ld CP:%f SP:%f\n", amplitude, average, cp, sp);
+    }
+
+    if (amplitude > wirelessAmplitudeLimit)
     {
         inputState[input] = 1;
     }
@@ -339,7 +356,10 @@ String getEEPROMdata()
         {
             sprintf(row, "{\"time\":%lu, \"input\":%d, \"state\":%d},", epoch, input, state);
             msg.concat(row);
-            //Serial.printf("printEEPROMdata: EEPROM index: %d\t Epoch timestamp:%lu \tInput: %d \tState: %d\n", i, epoch, input, state);
+            if (debug)
+            {
+                Serial.printf("printEEPROMdata: EEPROM index: %d\t Epoch timestamp:%lu \tInput: %d \tState: %d\n", i, epoch, input, state);
+            }
         }
     }
     msg.remove(msg.lastIndexOf(","));
